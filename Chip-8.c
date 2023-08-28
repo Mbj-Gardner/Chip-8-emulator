@@ -39,7 +39,6 @@ bool displayInit(void){
 };
 
 bool updateDisplay(Chip_8* CPU){
-    bool draw = false;
     SDL_Event event;
     SDL_PollEvent(&event);
     if(event.type == SDL_QUIT){
@@ -51,10 +50,9 @@ bool updateDisplay(Chip_8* CPU){
         SDL_Rect rect;
         SDL_RenderClear(renderer);
         SDL_SetRenderDrawColor(renderer, 0x00,0xFF,0x00,0xFF);
-        for(int row= 0; row< 64; row++){
-            for(int col=0; col<32; col++){
+        for(int row= 0; row< 32; row++){ // height
+            for(int col=0; col<64; col++){ // width
                 if(CPU->DISPLAY[row][col] == 1){
-                    draw = true;
                     rect.x = col;
                     rect.y = row;
                     rect.w = 1;
@@ -67,8 +65,8 @@ bool updateDisplay(Chip_8* CPU){
         }
         SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
         SDL_RenderPresent(renderer);
-        drawFlag = false;
     }
+    drawFlag = false;
     return true;
 };
 
@@ -243,12 +241,9 @@ void interpret(Chip_8* CPU){
                 for(int j = 0; j < 8; j++){
                     pixel = (pixelBuffer[i] & 0x80) >> 7;
                     if(CPU->DISPLAY[yCoord][xCoord] == 1 && pixel == 1){
-                        CPU->DISPLAY[yCoord][xCoord] = 0;
                         CPU->Chip_8_Reg[0xF] = 1;
                     }
-                    else if(CPU->DISPLAY[yCoord][xCoord] == 0 && pixel == 1){
-                        CPU->DISPLAY[yCoord][xCoord] = 1;
-                    }
+                    CPU->DISPLAY[yCoord][xCoord] = CPU->DISPLAY[yCoord][xCoord] ^ pixel;
                     pixelBuffer[i] = pixelBuffer[i] << 1;
                     xCoord++;
                     if(xCoord > 63){
