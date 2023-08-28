@@ -8,6 +8,7 @@ bool drawFlag = false;
 uint16_t inst = 0;
 uint8_t pixelBuffer[15];
 uint8_t xCoord;
+uint8_t initXCoord;
 uint8_t yCoord;
 bool displayInit(void){
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -18,8 +19,8 @@ bool displayInit(void){
     "SDL2 Window",             // Title
     SDL_WINDOWPOS_CENTERED,   // X position
     SDL_WINDOWPOS_CENTERED,   // Y position
-    800,                      // Width, 12 * original chip-8 width (truncated)
-    600,                      // Height 18 * original chip-8 height (truncated)
+    128,                      // Width, 12 * original chip-8 width (truncated)
+    64,                      // Height 18 * original chip-8 height (truncated)
     SDL_WINDOW_SHOWN          // Flags (e.g., SDL_WINDOW_SHOWN, SDL_WINDOW_FULLSCREEN, etc.)
 );
 
@@ -38,6 +39,7 @@ bool displayInit(void){
 };
 
 bool updateDisplay(Chip_8* CPU){
+    bool draw = false;
     SDL_Event event;
     SDL_PollEvent(&event);
     if(event.type == SDL_QUIT){
@@ -47,13 +49,22 @@ bool updateDisplay(Chip_8* CPU){
     }
     else if(drawFlag){
         SDL_Rect rect;
-        rect.x = xCoord;
-        rect.y = yCoord;
-        rect.w = 12;
-        rect.h = 18;
         SDL_RenderClear(renderer);
         SDL_SetRenderDrawColor(renderer, 0x00,0xFF,0x00,0xFF);
-        SDL_RenderDrawRect(renderer, &rect);
+        for(int row= 0; row< 64; row++){
+            for(int col=0; col<32; col++){
+                if(CPU->DISPLAY[row][col] == 1){
+                    draw = true;
+                    rect.x = col;
+                    rect.y = row;
+                    rect.w = 1;
+                    rect.h = 1;
+                    SDL_RenderDrawRect(renderer, &rect);
+                    //col+=12;
+                }
+            }
+            //row+=18;
+        }
         SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
         SDL_RenderPresent(renderer);
         drawFlag = false;
@@ -67,7 +78,7 @@ bool loadRom(Chip_8* CPU){
     // set PC to 0x200
     FILE* ROM;
     char romString[3];
-    ROM = fopen("test_opcode.ch8", "rb");
+    ROM = fopen("IBM Logo.ch8", "rb");
     if(ROM == NULL)return false;
     uint32_t index = 0;
     while(fgets(romString, 3, ROM)){
@@ -218,7 +229,7 @@ void interpret(Chip_8* CPU){
             n = (inst & 0x000F);
             CPU->Chip_8_Reg[0xF] = 0;
             // get x and y coordinates
-            xCoord = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] % 64; // using modulo to account for wrapping
+            initXCoord = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] % 64; // using modulo to account for wrapping
             yCoord = CPU->Chip_8_Reg[(inst & 0x00F0) >> 4] % 32;
             // clear the pixel buffer
             memset(pixelBuffer, 0, 15 * sizeof(char));
@@ -228,14 +239,15 @@ void interpret(Chip_8* CPU){
             }
 
             for(int i = 0; i < n; i++){
+                xCoord = initXCoord;
                 for(int j = 0; j < 8; j++){
-                    pixel = (pixelBuffer[i] & 0x80) >> 4;
-                    if(CPU->DISPLAY[xCoord][yCoord] == 1 && pixel == 1){
-                        CPU->DISPLAY[xCoord][yCoord] = 0;
+                    pixel = (pixelBuffer[i] & 0x80) >> 7;
+                    if(CPU->DISPLAY[yCoord][xCoord] == 1 && pixel == 1){
+                        CPU->DISPLAY[yCoord][xCoord] = 0;
                         CPU->Chip_8_Reg[0xF] = 1;
                     }
-                    else if(CPU->DISPLAY[xCoord][yCoord] == 0 && pixel == 1){
-                        CPU->DISPLAY[xCoord][yCoord] = 1;
+                    else if(CPU->DISPLAY[yCoord][xCoord] == 0 && pixel == 1){
+                        CPU->DISPLAY[yCoord][xCoord] = 1;
                     }
                     pixelBuffer[i] = pixelBuffer[i] << 1;
                     xCoord++;
