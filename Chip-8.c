@@ -19,8 +19,8 @@ bool displayInit(void){
     "SDL2 Window",             // Title
     SDL_WINDOWPOS_CENTERED,   // X position
     SDL_WINDOWPOS_CENTERED,   // Y position
-    128,                      // Width, 12 * original chip-8 width (truncated)
-    64,                      // Height 18 * original chip-8 height (truncated)
+    960,                      // Width, 15 * original chip-8 width (truncated)
+    480,                      // Height 15 * original chip-8 height (truncated)
     SDL_WINDOW_SHOWN          // Flags (e.g., SDL_WINDOW_SHOWN, SDL_WINDOW_FULLSCREEN, etc.)
 );
 
@@ -53,11 +53,12 @@ bool updateDisplay(Chip_8* CPU){
         for(int row= 0; row< 32; row++){ // height
             for(int col=0; col<64; col++){ // width
                 if(CPU->DISPLAY[row][col] == 1){
-                    rect.x = col;
-                    rect.y = row;
-                    rect.w = 1;
-                    rect.h = 1;
+                    rect.x = col * 15;
+                    rect.y = row * 15;
+                    rect.w = 15;
+                    rect.h = 15;
                     SDL_RenderDrawRect(renderer, &rect);
+                    SDL_RenderFillRect(renderer, &rect);
                     //col+=12;
                 }
             }
@@ -70,6 +71,16 @@ bool updateDisplay(Chip_8* CPU){
     return true;
 };
 
+bool loadBuiltInSprites(Chip_8* CPU){
+    int k = 0;
+    for(int i = 0; i < 15; i++){
+        for(int j = 0; j < 5; j++){
+            CPU->Chip_8_Ram[k] = builtInSprites[i][j];
+            k++;
+        }
+    }
+    return true;
+}
 bool loadRom(Chip_8* CPU){
     // open the chip_8 file 
     // iterate through the file and add each line into memory starting at 0x200
@@ -102,7 +113,11 @@ void interpret(Chip_8* CPU){
             // Clear Instruction
             printf("Instruction found\n"); // debugging
             if((inst & 0x00ff) == 0x00e0){
-                memset(CPU->DISPLAY, 0, sizeof(CPU->DISPLAY)); // set the display to zero
+                for(int row= 0; row< 32; row++){ // height
+                    for(int col=0; col<64; col++){ // width
+                        CPU->DISPLAY[row][col] = 0;
+                    } // set the display to zero
+                }
             }
             else if((inst & 0x00ff) == 0x00ee){ // RET instruction
                 CPU->PC = CPU->STACK[CPU->SP];
@@ -260,10 +275,15 @@ void interpret(Chip_8* CPU){
             break;
 
         case 0xE:
-            /* code */
+            printf("Instruction with prefix 0xE not found\n");
             break;
         case 0xF:
-            /* code */
+            if((inst & 0x00FF) == 0x0029){
+                //Fx29 - LD F, Vx Set I = location of sprite for digit corresponding to the value of Vx.
+                CPU->Index_Reg = spriteAddresses[CPU->Chip_8_Reg[(inst & 0x0F00) >> 8]];
+            }
+
+            else printf("Instruction with prefix 0xF not found\n");
             break;
         
         default:
@@ -277,7 +297,13 @@ void interpret(Chip_8* CPU){
 int main(){
     bool romStatus;
     bool displayStatus;
+    bool spritesStatus;
     Chip_8* CPU = (Chip_8*)malloc(sizeof(Chip_8));
+    // spritesStatus = loadBuiltInSprites(CPU);
+    // if(!spritesStatus){
+    //      printf("Error loading built-in sprites into memory");
+    //      return 0;
+    // }
     romStatus = loadRom(CPU);
     displayStatus = displayInit();
     if(!romStatus){
