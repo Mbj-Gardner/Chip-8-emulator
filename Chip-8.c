@@ -135,8 +135,10 @@ void interpret(Chip_8* CPU){
             CPU->PC = (inst & 0x0FFF) -2; // Jmp Instruction
             break;
         case 0x2:
+            //2nnn - CALL addr Call subroutine at nnn.
             printf("Instruction found\n"); // debugging
             CPU->STACK[++CPU->SP] = CPU->PC; // Call instruction
+            CPU->PC = (inst & 0x0fff) - 2;
             break;
         case 0x3:
             // SE Vx, byte: Skip next instruction if Vx = kk. (3xkk)
@@ -330,9 +332,9 @@ void interpret(Chip_8* CPU){
                 uint8_t hundrendsPlace = (digits / 100) % 10;
                 uint8_t tensPlace = (digits / 10) % 10;
                 uint8_t onesPlace = (digits / 1) % 10;
-                CPU->Chip_8_Ram[CPU->Index_Reg] = spriteAddresses[hundrendsPlace];
-                CPU->Chip_8_Ram[CPU->Index_Reg + 1] = spriteAddresses[tensPlace];
-                CPU->Chip_8_Ram[CPU->Index_Reg + 2] = spriteAddresses[onesPlace];
+                CPU->Chip_8_Ram[CPU->Index_Reg] = hundrendsPlace;
+                CPU->Chip_8_Ram[CPU->Index_Reg + 1] = tensPlace;
+                CPU->Chip_8_Ram[CPU->Index_Reg + 2] = onesPlace;
             }
 
             else if((inst & 0x00FF) == 0x0055){
