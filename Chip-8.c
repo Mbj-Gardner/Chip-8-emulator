@@ -38,6 +38,12 @@ bool displayInit(void){
     return true;
 };
 
+bool isValidKeyPress(char K){
+    for(int i = 0; i<15; i++){
+        if(K == validKeys[i]) return true;
+    }
+    return false;
+}
 bool updateDisplay(Chip_8* CPU){
     SDL_Event event;
     SDL_PollEvent(&event);
@@ -87,7 +93,7 @@ bool loadRom(Chip_8* CPU){
     // set PC to 0x200
     FILE* ROM;
     char romString[3];
-    ROM = fopen("IBM Logo.ch8", "rb");
+    ROM = fopen("test_opcode.ch8", "rb");
     if(ROM == NULL)return false;
     uint32_t index = 0;
     while(fgets(romString, 3, ROM)){
@@ -275,12 +281,74 @@ void interpret(Chip_8* CPU){
             break;
 
         case 0xE:
-            printf("Instruction with prefix 0xE not found\n");
+            if((inst & 0x00FF) == 0x009E){
+                //Ex9E - SKP Vx Skip next instruction if key with the value of Vx is pressed.
+                if(CPU->KEYBOARD[CPU->Chip_8_Reg[(inst & 0x0f00) >> 8]] == 1)CPU->PC+=2;
+            }
+            else if((inst & 0x00FF) == 0x00A1){
+                // ExA1 - SKNP Vx Skip next instruction if key with the value of Vx is not pressed.
+                if(CPU->KEYBOARD[CPU->Chip_8_Reg[(inst & 0x0f00) >> 8]] == 0)CPU->PC+=2;
+            }
             break;
+
         case 0xF:
-            if((inst & 0x00FF) == 0x0029){
+            if((inst & 0x00FF) == 0x0007){
+                //Fx07 - LD Vx, DT Set Vx = delay timer value.
+               CPU->Chip_8_Reg[(inst & 0x0f00) >> 8] = CPU->DT_Reg;
+            }
+            else if((inst & 0x00FF) == 0x000A){
+                //Fx0A - LD Vx, K Wait for a key press, store the value of the key in Vx.
+                char K = NULL;
+                while(!isValidKeyPress(K)){
+                    scanf(&K);
+                }
+                CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = K;
+            }
+            else if((inst & 0x00FF) == 0x0015){
+                //Fx15 - LD DT, Vx Set delay timer = Vx.
+                CPU->DT_Reg = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8];
+            }
+
+            else if((inst & 0x00FF) == 0x0018){
+                //Fx18 - LD ST, Vx Set sound timer = Vx.
+                CPU->ST_Reg = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8];
+            }
+
+            else if((inst & 0x00FF) == 0x001E){
+                //Fx1E - ADD I, Vx Set I = I + Vx.
+                CPU->Index_Reg = CPU->Index_Reg + CPU->Chip_8_Reg[(inst & 0x0F00) >> 8];
+            }
+
+            else if((inst & 0x00FF) == 0x0029){
                 //Fx29 - LD F, Vx Set I = location of sprite for digit corresponding to the value of Vx.
                 CPU->Index_Reg = spriteAddresses[CPU->Chip_8_Reg[(inst & 0x0F00) >> 8]];
+            }
+
+            else if((inst & 0x00FF) == 0x0033){
+                // Fx33 - LD B, Vx Store BCD representation of Vx in memory locations I, I+1, and I+2.
+                uint8_t digits = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8];
+                uint8_t hundrendsPlace = (digits / 100) % 10;
+                uint8_t tensPlace = (digits / 10) % 10;
+                uint8_t onesPlace = (digits / 1) % 10;
+                CPU->Chip_8_Ram[CPU->Index_Reg] = spriteAddresses[hundrendsPlace];
+                CPU->Chip_8_Ram[CPU->Index_Reg + 1] = spriteAddresses[tensPlace];
+                CPU->Chip_8_Ram[CPU->Index_Reg + 2] = spriteAddresses[onesPlace];
+            }
+
+            else if((inst & 0x00FF) == 0x0055){
+                // Fx55 - LD [I], Vx Store registers V0 through Vx in memory starting at location I.
+                int n = (inst & 0x0F00) >> 8;
+                for(int i =0; i < n; i++){
+                    CPU->Chip_8_Ram[CPU->Index_Reg + i] = CPU->Chip_8_Reg[i];
+                }
+            }
+            else if((inst & 0x00FF) == 0x0065){
+                // Fx65 - LD Vx, [I] Read registers V0 through Vx from memory starting at location I.
+                int n = (inst & 0x0F00) >> 8;
+                for(int i =0; i < n; i++){
+                    CPU->Chip_8_Reg[i] = CPU->Chip_8_Ram[CPU->Index_Reg + i];
+                }
+
             }
 
             else printf("Instruction with prefix 0xF not found\n");
@@ -299,11 +367,11 @@ int main(){
     bool displayStatus;
     bool spritesStatus;
     Chip_8* CPU = (Chip_8*)malloc(sizeof(Chip_8));
-    // spritesStatus = loadBuiltInSprites(CPU);
-    // if(!spritesStatus){
-    //      printf("Error loading built-in sprites into memory");
-    //      return 0;
-    // }
+    spritesStatus = loadBuiltInSprites(CPU);
+    if(!spritesStatus){
+         printf("Error loading built-in sprites into memory");
+         return 0;
+    }
     romStatus = loadRom(CPU);
     displayStatus = displayInit();
     if(!romStatus){
@@ -325,5 +393,6 @@ int main(){
             break;
         }
     }
+    free(CPU);
     return 0;
 };
