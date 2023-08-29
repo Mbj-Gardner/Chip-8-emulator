@@ -111,6 +111,7 @@ void interpret(Chip_8* CPU){
     uint8_t n; // number of bytes for sprite;
     uint8_t random_Number;
     uint8_t pixel; // used for draw instruction
+    CPU->PC = CPU->PC + 2;
     if(inst){
         printf("First Nibble:%d Inst Value:%d\n", MSN(inst), inst);
         switch (MSN(inst))
@@ -118,27 +119,26 @@ void interpret(Chip_8* CPU){
         case 0x0:
             // Clear Instruction
             printf("Instruction found\n"); // debugging
-            if((inst & 0x00ff) == 0x00e0){
+            if((inst & 0xfff) == 0x00e0){
                 for(int row= 0; row< 32; row++){ // height
                     for(int col=0; col<64; col++){ // width
                         CPU->DISPLAY[row][col] = 0;
                     } // set the display to zero
                 }
             }
-            else if((inst & 0x00ff) == 0x00ee){ // RET instruction
-                CPU->PC = CPU->STACK[CPU->SP];
-                CPU->SP--;
+            else if((inst & 0xfff) == 0x00ee){ // RET instruction
+                CPU->PC = CPU->STACK[--CPU->SP];
             }
             break;
         case 0x1:
             printf("Instruction found\n"); // debugging
-            CPU->PC = (inst & 0x0FFF) -2; // Jmp Instruction
+            CPU->PC = (inst & 0x0FFF); // Jmp Instruction
             break;
         case 0x2:
             //2nnn - CALL addr Call subroutine at nnn.
             printf("Instruction found\n"); // debugging
-            CPU->STACK[++CPU->SP] = CPU->PC; // Call instruction
-            CPU->PC = (inst & 0x0fff) - 2;
+            CPU->STACK[CPU->SP++] = CPU->PC; // Call instruction
+            CPU->PC = (inst & 0x0fff);
             break;
         case 0x3:
             // SE Vx, byte: Skip next instruction if Vx = kk. (3xkk)
@@ -235,14 +235,14 @@ void interpret(Chip_8* CPU){
         case 0xB:
             //Bnnn - JP V0, addr Jump to location nnn + V0.
             printf("Instruction found\n"); // debugging
-            CPU->PC = (inst & 0x0FFF) + CPU->Chip_8_Reg[0] - 2;
+            CPU->PC = (inst & 0x0FFF) + CPU->Chip_8_Reg[0];
             break;
 
         case 0xC:
             // Cxkk - RND Vx, byte Set Vx = random byte AND kk.
             printf("Instruction found\n"); // debugging
             random_Number = rand()%((rand_max+1)-rand_min) - 1;
-            CPU->PC = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = (random_Number &  (inst & 0x00FF));
+            CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = (random_Number &  (inst & 0x00FF));
             break;
 
         case 0xD:
@@ -340,14 +340,14 @@ void interpret(Chip_8* CPU){
             else if((inst & 0x00FF) == 0x0055){
                 // Fx55 - LD [I], Vx Store registers V0 through Vx in memory starting at location I.
                 int n = (inst & 0x0F00) >> 8;
-                for(int i =0; i < n; i++){
+                for(int i =0; i <= n; i++){
                     CPU->Chip_8_Ram[CPU->Index_Reg + i] = CPU->Chip_8_Reg[i];
                 }
             }
             else if((inst & 0x00FF) == 0x0065){
                 // Fx65 - LD Vx, [I] Read registers V0 through Vx from memory starting at location I.
                 int n = (inst & 0x0F00) >> 8;
-                for(int i =0; i < n; i++){
+                for(int i =0; i <= n; i++){
                     CPU->Chip_8_Reg[i] = CPU->Chip_8_Ram[CPU->Index_Reg + i];
                 }
 
@@ -359,8 +359,6 @@ void interpret(Chip_8* CPU){
         default:
             printf("Instruction not found\n");
         }
-        CPU->PC = CPU->PC + 2;
-        inst = (CPU->Chip_8_Ram[CPU->PC] << 8) | (CPU->Chip_8_Ram[CPU->PC + 1]);
     }
 };
 
