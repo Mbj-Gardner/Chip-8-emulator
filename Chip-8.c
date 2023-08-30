@@ -45,6 +45,7 @@ bool isValidKeyPress(char K){
     return false;
 }
 bool updateDisplay(Chip_8* CPU){
+    SDL_Delay(1); // fix for apparent race condition. 
     SDL_Event event;
     SDL_PollEvent(&event);
     if(event.type == SDL_QUIT){
@@ -54,8 +55,8 @@ bool updateDisplay(Chip_8* CPU){
     }
     else if(drawFlag){
         SDL_Rect rect;
+        SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
         SDL_RenderClear(renderer);
-        SDL_SetRenderDrawColor(renderer, 0x00,0xFF,0x00,0xFF);
         for(int row= 0; row< 32; row++){ // height
             for(int col=0; col<64; col++){ // width
                 if(CPU->DISPLAY[row][col] == 1){
@@ -63,6 +64,7 @@ bool updateDisplay(Chip_8* CPU){
                     rect.y = row * 15;
                     rect.w = 15;
                     rect.h = 15;
+                    SDL_SetRenderDrawColor(renderer, 0x00,0xFF,0x00,0xFF);
                     SDL_RenderDrawRect(renderer, &rect);
                     SDL_RenderFillRect(renderer, &rect);
                     //col+=12;
@@ -72,6 +74,10 @@ bool updateDisplay(Chip_8* CPU){
         }
         SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
         SDL_RenderPresent(renderer);
+    }
+    const char* errorMsg = SDL_GetError();
+    if(strlen(errorMsg) > 0){
+        printf(">>>%s\n", errorMsg);
     }
     drawFlag = false;
     return true;
@@ -93,7 +99,7 @@ bool loadRom(Chip_8* CPU){
     // set PC to 0x200
     FILE* ROM;
     char romString[3];
-    ROM = fopen("test_opcode.ch8", "rb");
+    ROM = fopen("octojam1title.ch8", "rb");
     if(ROM == NULL)return false;
     uint32_t index = 0;
     while(fgets(romString, 3, ROM)){
@@ -391,6 +397,13 @@ int main(){
         if(!displayStatus){
             printf("Error updating display");
             break;
+        }
+         if (CPU->DT_Reg > 0) { 
+            uint32_t count = 17200000;
+            while(count > 0){
+                count-=8;
+            }
+            CPU->DT_Reg--; 
         }
     }
     free(CPU);
