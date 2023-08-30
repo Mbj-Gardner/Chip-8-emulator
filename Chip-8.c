@@ -45,15 +45,19 @@ bool isValidKeyPress(char K){
     return false;
 }
 bool updateDisplay(Chip_8* CPU){
-    SDL_Delay(1); // fix for apparent race condition. 
     SDL_Event event;
-    SDL_PollEvent(&event);
-    if(event.type == SDL_QUIT){
-        RUN = false;
-        drawFlag = false;
-        return true;
+    bool quit = false;
+    while (!quit) {
+        while (SDL_PollEvent(&event) != 0) {
+        if (event.type == SDL_QUIT) {
+            quit = true;
+            drawFlag = false;
+            RUN = false;
+        }
+        // Handle other event types here (e.g., keyboard, mouse)
     }
-    else if(drawFlag){
+    if(drawFlag){
+        SDL_Delay(1);
         SDL_Rect rect;
         SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
         SDL_RenderClear(renderer);
@@ -81,7 +85,8 @@ bool updateDisplay(Chip_8* CPU){
     }
     drawFlag = false;
     return true;
-};
+}
+}
 
 bool loadBuiltInSprites(Chip_8* CPU){
     int k = 0;
@@ -93,13 +98,13 @@ bool loadBuiltInSprites(Chip_8* CPU){
     }
     return true;
 }
-bool loadRom(Chip_8* CPU){
+bool loadRom(Chip_8* CPU, char* romName){
     // open the chip_8 file 
     // iterate through the file and add each line into memory starting at 0x200
     // set PC to 0x200
     FILE* ROM;
     char romString[3];
-    ROM = fopen("octojam1title.ch8", "rb");
+    ROM = fopen(romName, "rb");
     if(ROM == NULL)return false;
     uint32_t index = 0;
     while(fgets(romString, 3, ROM)){
@@ -368,17 +373,18 @@ void interpret(Chip_8* CPU){
     }
 };
 
-int main(){
+int main(int argc, char* argv[]){
     bool romStatus;
     bool displayStatus;
     bool spritesStatus;
+    char* romName = argv[1];
     Chip_8* CPU = (Chip_8*)malloc(sizeof(Chip_8));
     spritesStatus = loadBuiltInSprites(CPU);
     if(!spritesStatus){
          printf("Error loading built-in sprites into memory");
          return 0;
     }
-    romStatus = loadRom(CPU);
+    romStatus = loadRom(CPU, romName);
     displayStatus = displayInit();
     if(!romStatus){
         printf("Error loading rom into memory");
