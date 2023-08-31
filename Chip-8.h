@@ -18,7 +18,7 @@ typedef struct {
     uint8_t SP; // stack pointer
     uint16_t STACK[16]; // the stack
     uint8_t DISPLAY[32][64]; // 64x32 pixel display
-    uint8_t KEYBOARD[15]; // 16-key hex keypad
+    uint8_t KEYBOARD[16]; // 16-key hex keypad
 } Chip_8;
 
 uint8_t builtInSprites[16][5] = {
@@ -56,4 +56,4 @@ bool updateDisplay(Chip_8* CPU);
 // load built in sprites into memory
 bool loadBuiltInSprites(Chip_8* CPU);
 // determines if a key press is valid;
-bool isValidKeyPress(char K);
+int isValidKeyPress(char K);

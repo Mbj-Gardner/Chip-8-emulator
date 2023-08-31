@@ -38,11 +38,11 @@ bool displayInit(void){
     return true;
 };
 
-bool isValidKeyPress(char K){
+int isValidKeyPress(char K){
     for(int i = 0; i<15; i++){
-        if(K == validKeys[i]) return true;
+        if(K == validKeys[i]) return i;
     }
-    return false;
+    return -1;
 }
 bool updateDisplay(Chip_8* CPU){
     SDL_Event event;
@@ -71,10 +71,8 @@ bool updateDisplay(Chip_8* CPU){
                     SDL_SetRenderDrawColor(renderer, 0x00,0xFF,0x00,0xFF);
                     SDL_RenderDrawRect(renderer, &rect);
                     SDL_RenderFillRect(renderer, &rect);
-                    //col+=12;
                 }
             }
-            //row+=18;
         }
         SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
         SDL_RenderPresent(renderer);
@@ -201,32 +199,38 @@ void interpret(Chip_8* CPU){
 
             else if((inst & 0x000F) == 4){
                 // 8xy4 - ADD Vx, Vy: Set Vx = Vx + Vy, set VF (Reg 15) = carry.
-                CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] += CPU->Chip_8_Reg[(inst & 0x0F0) >> 4];
-                CPU->Chip_8_Reg[15] = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] > 255 ? 1 : 0;
+                int temp  = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] + CPU->Chip_8_Reg[(inst & 0x0F0) >> 4] > 255 ? 1 : 0;
+                uint8_t res = (CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] + CPU->Chip_8_Reg[(inst & 0x0F0) >> 4]) & 0x00FF;
+                CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = res;
+                CPU->Chip_8_Reg[15] = temp;
             }
 
             else if((inst & 0x000F) == 5){
                 // 8xy5 - SUB Vx, Vy Set Vx = Vx - Vy, set VF = NOT borrow.
-                CPU->Chip_8_Reg[15] = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] > CPU->Chip_8_Reg[(inst & 0x0F0) >> 4] ? 1 : 0;
+                int temp = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] > CPU->Chip_8_Reg[(inst & 0x0F0) >> 4] ? 1 : 0;
                 CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] -= CPU->Chip_8_Reg[(inst & 0x0F0) >> 4];
+                CPU->Chip_8_Reg[15] = temp;
             }
 
             else if((inst & 0x000F) == 6){
                 // 8xy6 - SHR Vx {, Vy} Set Vx = Vx SHR 1.
-                CPU->Chip_8_Reg[15] = (CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] & 0x01) == 1 ? 1 : 0;
+                int temp = (CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] & 0x01) == 1 ? 1 : 0;
                 CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] >> 1;
+                CPU->Chip_8_Reg[15] = temp;
             }
 
             else if((inst & 0x000F) == 7){
                 // 8xy7 - SUBN Vx, Vy Set Vx = Vy - Vx, set VF = NOT borrow.
-                CPU->Chip_8_Reg[15] = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] < CPU->Chip_8_Reg[(inst & 0x0F0) >> 4] ? 1 : 0;
-                CPU->Chip_8_Reg[(inst & 0x0F0) >> 4] -= CPU->Chip_8_Reg[(inst & 0x0F00) >> 8];
+                int temp = CPU->Chip_8_Reg[(inst & 0x00F0) >> 4] > CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] ? 1 : 0;
+                CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = CPU->Chip_8_Reg[(inst & 0x00F0) >> 4] -  CPU->Chip_8_Reg[(inst & 0x0F00) >> 8];
+                CPU->Chip_8_Reg[15] = temp;
             }
 
             else if((inst & 0x000F) == 0xE){
                 // 8xyE - SHL Vx {, Vy} Set Vx = Vx SHL 1.
-                CPU->Chip_8_Reg[15] = (CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] & 0x80) == 1 ? 1 : 0;
+                int temp = (CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] & 0x80) == 128 ? 1 : 0;
                 CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] << 1;
+                CPU->Chip_8_Reg[15] = temp;
             }
             
             break;
@@ -252,8 +256,7 @@ void interpret(Chip_8* CPU){
         case 0xC:
             // Cxkk - RND Vx, byte Set Vx = random byte AND kk.
             printf("Instruction found\n"); // debugging
-            random_Number = rand()%((rand_max+1)-rand_min) - 1;
-            CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = (random_Number &  (inst & 0x00FF));
+            CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = (rand() &  (inst & 0x00FF));
             break;
 
         case 0xD:
@@ -271,8 +274,10 @@ void interpret(Chip_8* CPU){
             }
 
             for(int i = 0; i < n; i++){
+                if(yCoord > 31)break;
                 xCoord = initXCoord;
                 for(int j = 0; j < 8; j++){
+                    if(xCoord > 63)break;
                     pixel = (pixelBuffer[i] & 0x80) >> 7;
                     if(CPU->DISPLAY[yCoord][xCoord] == 1 && pixel == 1){
                         CPU->Chip_8_Reg[0xF] = 1;
@@ -280,14 +285,8 @@ void interpret(Chip_8* CPU){
                     CPU->DISPLAY[yCoord][xCoord] = CPU->DISPLAY[yCoord][xCoord] ^ pixel;
                     pixelBuffer[i] = pixelBuffer[i] << 1;
                     xCoord++;
-                    if(xCoord > 63){
-                        break;
-                    }
                 }
                 yCoord++;
-                if(yCoord > 31){
-                    break;
-                }
 
             }
             drawFlag = true;
@@ -296,11 +295,11 @@ void interpret(Chip_8* CPU){
         case 0xE:
             if((inst & 0x00FF) == 0x009E){
                 //Ex9E - SKP Vx Skip next instruction if key with the value of Vx is pressed.
-                if(CPU->KEYBOARD[CPU->Chip_8_Reg[(inst & 0x0f00) >> 8]] == 1)CPU->PC+=2;
+                if(CPU->KEYBOARD[CPU->Chip_8_Reg[(inst & 0x0f00) >> 8] & 0x00FF] == 1)CPU->PC+=2;
             }
             else if((inst & 0x00FF) == 0x00A1){
                 // ExA1 - SKNP Vx Skip next instruction if key with the value of Vx is not pressed.
-                if(CPU->KEYBOARD[CPU->Chip_8_Reg[(inst & 0x0f00) >> 8]] == 0)CPU->PC+=2;
+                if(CPU->KEYBOARD[CPU->Chip_8_Reg[(inst & 0x0f00) >> 8] & 0x00FF] == 0)CPU->PC+=2;
             }
             break;
 
@@ -312,10 +311,14 @@ void interpret(Chip_8* CPU){
             else if((inst & 0x00FF) == 0x000A){
                 //Fx0A - LD Vx, K Wait for a key press, store the value of the key in Vx.
                 char K = NULL;
-                while(!isValidKeyPress(K)){
+                int keyIndex = -1;
+                while(keyIndex < 0){
                     scanf(&K);
+                    keyIndex = isValidKeyPress(K);
                 }
+                memset(CPU->KEYBOARD, 0, sizeof(char) * 16);
                 CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = K;
+                CPU->KEYBOARD[keyIndex] = 1;
             }
             else if((inst & 0x00FF) == 0x0015){
                 //Fx15 - LD DT, Vx Set delay timer = Vx.
@@ -334,7 +337,7 @@ void interpret(Chip_8* CPU){
 
             else if((inst & 0x00FF) == 0x0029){
                 //Fx29 - LD F, Vx Set I = location of sprite for digit corresponding to the value of Vx.
-                CPU->Index_Reg = spriteAddresses[CPU->Chip_8_Reg[(inst & 0x0F00) >> 8]];
+                CPU->Index_Reg = spriteAddresses[CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] & 0x00FF];
             }
 
             else if((inst & 0x00FF) == 0x0033){
@@ -407,7 +410,7 @@ int main(int argc, char* argv[]){
          if (CPU->DT_Reg > 0) { 
             uint32_t count = 17200000;
             while(count > 0){
-                count-=8;
+                count-=1;
             }
             CPU->DT_Reg--; 
         }
