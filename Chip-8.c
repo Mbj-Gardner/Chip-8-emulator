@@ -5,11 +5,21 @@ SDL_Window *window = NULL;
 SDL_Renderer *renderer = NULL;
 bool RUN = true;
 bool drawFlag = false;
+bool getKey = false;
 uint16_t inst = 0;
 uint8_t pixelBuffer[15];
 uint8_t xCoord;
 uint8_t initXCoord;
 uint8_t yCoord;
+uint32_t count = 17200000; // used for timer
+bool pressed = false;
+void timer(Chip_8* CPU){
+    while(count > 0){
+        count-=1;
+    }
+    CPU->DT_Reg--; 
+    count = 17200000;
+}
 bool displayInit(void){
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
     // error initializing
@@ -39,22 +49,50 @@ bool displayInit(void){
 };
 
 int isValidKeyPress(char K){
-    for(int i = 0; i<15; i++){
-        if(K == validKeys[i]) return i;
+    for(int i = 0; i<22; i++){
+        if(K == validKeys[i]){
+            if(i > 15)return i - 6;
+            else return i;
+        } 
     }
     return -1;
 }
 bool updateDisplay(Chip_8* CPU){
     SDL_Event event;
     bool quit = false;
+    while(getKey){
+        while (SDL_PollEvent(&event) != 0) {
+            if(event.type == SDL_KEYDOWN){
+            int index = isValidKeyPress(event.key.keysym.sym);
+            if(index >= 0){
+                CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = index;
+                getKey = false;
+            }
+          }
+        }
+          if (CPU->DT_Reg > 0) timer(CPU);
+    }
     while (!quit) {
         while (SDL_PollEvent(&event) != 0) {
-        if (event.type == SDL_QUIT) {
+         if (event.type == SDL_QUIT) {
             quit = true;
             drawFlag = false;
             RUN = false;
         }
-        // Handle other event types here (e.g., keyboard, mouse)
+        else if(event.type == SDL_KEYDOWN){
+            pressed = true;
+            int index = isValidKeyPress(event.key.keysym.sym);
+            if(index >= 0){
+                CPU->KEYBOARD[index] = 1;
+            }
+        }
+
+        else if(event.type == SDL_KEYUP){
+            int index = isValidKeyPress(event.key.keysym.sym);
+            if(index >= 0){
+                CPU->KEYBOARD[index] = 0;
+            }
+        }
     }
     if(drawFlag){
         SDL_Delay(1);
@@ -310,15 +348,7 @@ void interpret(Chip_8* CPU){
             }
             else if((inst & 0x00FF) == 0x000A){
                 //Fx0A - LD Vx, K Wait for a key press, store the value of the key in Vx.
-                char K = NULL;
-                int keyIndex = -1;
-                while(keyIndex < 0){
-                    scanf(&K);
-                    keyIndex = isValidKeyPress(K);
-                }
-                memset(CPU->KEYBOARD, 0, sizeof(char) * 16);
-                CPU->Chip_8_Reg[(inst & 0x0F00) >> 8] = K;
-                CPU->KEYBOARD[keyIndex] = 1;
+                getKey = true;
             }
             else if((inst & 0x00FF) == 0x0015){
                 //Fx15 - LD DT, Vx Set delay timer = Vx.
@@ -401,18 +431,12 @@ int main(int argc, char* argv[]){
     while(RUN){
         // interpret
         //update the display if needed
+        if (CPU->DT_Reg > 0) timer(CPU);
         interpret(CPU);
         displayStatus = updateDisplay(CPU);
         if(!displayStatus){
             printf("Error updating display");
             break;
-        }
-         if (CPU->DT_Reg > 0) { 
-            uint32_t count = 17200000;
-            while(count > 0){
-                count-=1;
-            }
-            CPU->DT_Reg--; 
         }
     }
     free(CPU);

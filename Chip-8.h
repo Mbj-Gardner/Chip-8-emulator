@@ -40,7 +40,7 @@ uint8_t builtInSprites[16][5] = {
     {0xF0,0x80,0xF0,0x80,0x80} // F
 };
 uint8_t spriteAddresses[15] = {0x00, 0x05, 0x0A, 0x0F, 0x14, 0x19, 0x1E, 0x23, 0x28, 0x2D, 0x32, 0x37, 0x3C, 0x41, 0x46};
-char validKeys[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+char validKeys[22] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f'};
 // Loads the Chip 8 ROM into memory(RAM) and sets PC to 0x200
 bool loadRom(Chip_8* CPU, char* romName);
 
@@ -57,3 +57,6 @@ bool updateDisplay(Chip_8* CPU);
 bool loadBuiltInSprites(Chip_8* CPU);
 // determines if a key press is valid;
 int isValidKeyPress(char K);
+
+// decrements the delay timer
+void timer(Chip_8* CPU);
